@@ -1,0 +1,128 @@
+{
+  "repository": "https://github.com/xpzouying/xiaohongshu-mcp.git",
+  "commit": "a5c8f7799980ba1fdd501999843eb2d17e4c9a9f",
+  "upstream_license": "Apache-2.0",
+  "files": {
+    "LICENSE": {
+      "sha256": "9d8b162d4b4822b793666e2a8cb6c94df7ecdb8204f23a20e6042f93e691cb0d",
+      "size_bytes": 11339
+    },
+    "app_server.go": {
+      "sha256": "68e90e0cddac7ebec0ee3f10b8f7e659d7c1d0e3b03ec7e464046f3a292a7b6e",
+      "size_bytes": 2108
+    },
+    "browser/browser.go": {
+      "sha256": "8f4bb1846fb816baf89cb7a04c541cc2d9ce98a408e34c64fec80226a8603ba3",
+      "size_bytes": 4423
+    },
+    "browser/browser_test.go": {
+      "sha256": "b96c1d1c5d5a5f9e98364c21ff1b4c3d94ac3dcb365c96cf56a7b1ac9d1461b6",
+      "size_bytes": 1938
+    },
+    "cookies/cookies.go": {
+      "sha256": "9ec8e91d118824a5a79ad5976a7d1f5c36daa8a621505e0383490b6c96c9fa1b",
+      "size_bytes": 4191
+    },
+    "go.mod": {
+      "sha256": "40cfd24df3e4578e998079c300ef996433b231e132852eb62de360ef8a61236c",
+      "size_bytes": 2608
+    },
+    "handlers_api.go": {
+      "sha256": "472cd178105f222ddc9443ce9d2d0f851e28c850a07cb7bac3ba48bfa2be4a09",
+      "size_bytes": 13075
+    },
+    "integration_api.go": {
+      "sha256": "df24eda65ddc6d0082e3bce304c1bca94a0f7683f78aac1b56f3163f0c1e5471",
+      "size_bytes": 27041
+    },
+    "integration_image_evidence.go": {
+      "sha256": "2cf7810102e02e3553c2c82df664abafe2b0898dbbc94cece5d65d762ebc3395",
+      "size_bytes": 5975
+    },
+    "integration_journal.go": {
+      "sha256": "3d614bc1e17995f8976b16cd1dcd3fd37d03ea0229725ff61f9fd617983168f4",
+      "size_bytes": 7359
+    },
+    "integration_management_evidence.go": {
+      "sha256": "514fda39ac4e28b79f7754ad853e388bbb1e58c3131c456f132929b6e3031fae",
+      "size_bytes": 6607
+    },
+    "integration_manual_retry.go": {
+      "sha256": "a43ed7f8575cb65aa705f4788ec8e6ff14dab8430f4f1eb39c810f8ea45c1fd0",
+      "size_bytes": 3187
+    },
+    "integration_manual_retry_test.go": {
+      "sha256": "5af6ffccb6a9893f871edc561eb9c07af3fd79065f35f53d3e2696f8aef0485c",
+      "size_bytes": 3463
+    },
+    "integration_test.go": {
+      "sha256": "db837fc2a693e081f7ac166011354a1005ffb29e8815fadf466818c80f1822be",
+      "size_bytes": 28438
+    },
+    "login_diagnostics.go": {
+      "sha256": "7f980b595d46e28c1e28ceca50c953d152fcf86c9d3258d65093db45e89b8a7a",
+      "size_bytes": 12821
+    },
+    "main.go": {
+      "sha256": "b26568bc39611cac36b809a2726e046b66d0e5ca1739a252c02b2359bead2d3f",
+      "size_bytes": 2132
+    },
+    "routes.go": {
+      "sha256": "13a014d314b36ce53f8f4d23e5c2476575bcdc4c018fd238bff4a3fb299e74aa",
+      "size_bytes": 3240
+    },
+    "service.go": {
+      "sha256": "b912afd554a4bde3f54876caac462929ac9cdce323912f476c4093c585fa271e",
+      "size_bytes": 20675
+    },
+    "third_party/headless_browser/LICENSE": {
+      "sha256": "82d3ff6ed6f97047a3a38a11c4a3e0321dc56c7dc01df45397a905b375e0d01c",
+      "size_bytes": 1059
+    },
+    "third_party/headless_browser/PATCH.md": {
+      "sha256": "18462cf500a460cb959b14f31f4bc83d2d7b8162084030eea93df2a085feb04d",
+      "size_bytes": 856
+    },
+    "third_party/headless_browser/go.mod": {
+      "sha256": "6bee38bf738eae987ac36aaed6d3250f87afefb8736d25a997dfe123c358c2b4",
+      "size_bytes": 570
+    },
+    "third_party/headless_browser/go.sum": {
+      "sha256": "a84857b3e9b9f4346860df1de611e778322f4c9f5eba279050c2e068b1239e6e",
+      "size_bytes": 3227
+    },
+    "third_party/headless_browser/headless_browser.go": {
+      "sha256": "58db04110ada5e54856d50a94d623dac39d21a62bd74e8ccc72d946817a93866",
+      "size_bytes": 12294
+    },
+    "third_party/headless_browser/native_test.go": {
+      "sha256": "281c3bccfefbcb092b07d3cf780b4ea1681d01cd7c9a5abd7451c12aa3efa2f7",
+      "size_bytes": 1977
+    },
+    "xiaohongshu/integration_editor.go": {
+      "sha256": "84dfa262a1e8b52d4f86d8dbc531385d460a9637e5ffc77fc6d3461e3e678b6c",
+      "size_bytes": 16995
+    },
+    "xiaohongshu/integration_editor_test.go": {
+      "sha256": "c1d6dffb56b95ad54c7faee8bc257477c59a5a7fae1b68491f3c6fbc4f4fb8de",
+      "size_bytes": 11442
+    },
+    "xiaohongshu/integration_management.go": {
+      "sha256": "86859fb4e0f79a4b874800d7fbd54447b3096a8137743570565e8d7d31042400",
+      "size_bytes": 8437
+    },
+    "xiaohongshu/integration_submit_wait_test.go": {
+      "sha256": "65ef9efe6d18eb3a3494e0d20ae48428621ebe5f3f37f978f98da4821bb2481a",
+      "size_bytes": 1371
+    },
+    "xiaohongshu/login.go": {
+      "sha256": "2c9afd95dfc81f5c777c3c5c7a5d84c27f41325fa9437fda168f9f64ed346663",
+      "size_bytes": 7229
+    },
+    "xiaohongshu/publish.go": {
+      "sha256": "a2345d4b50ac3977852fceb03d0ee25a45ed8d063fc733cbfa61af1f03e602e9",
+      "size_bytes": 43502
+    }
+  },
+  "runtime_data_included": false
+}

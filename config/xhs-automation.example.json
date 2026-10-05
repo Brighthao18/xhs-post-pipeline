@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "workspace": "..",
+  "timezone": "Asia/Singapore",
+  "engine": "codex",
+  "author": "示例作者",
+  "state_dir": "Codex/state/xhs-post",
+  "work_dir": "Codex/work/xhs-post",
+  "output_dir": "output",
+  "account": {"nickname": "", "account_id": "", "user_id": ""},
+  "sources": [],
+  "policy": {
+    "allow_publish": false,
+    "submit_backend_ready": false,
+    "max_posts_per_day": 1,
+    "max_revision_rounds": 2,
+    "max_acquire_per_run": 3,
+    "publish_hours": [9, 21]
+  },
+  "publication_backend": {"type": "disabled", "reason": "尚未配置和验收发布后端"},
+  "editorial": {"excluded_source_names": []}
+}

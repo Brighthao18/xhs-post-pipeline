@@ -1,0 +1,10 @@
+include LICENSE README.md pyproject.toml
+recursive-include pipeline/v2 *.py
+recursive-include pipeline/assets *.py
+prune pipeline/v2/tests
+prune tests
+prune scripts
+prune pipeline/v2/__pycache__
+prune pipeline/assets/__pycache__
+prune pipeline/assets/scripts/__pycache__
+global-exclude *.pyc *.pyo

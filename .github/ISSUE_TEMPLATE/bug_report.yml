@@ -1,0 +1,23 @@
+name: 问题报告
+description: 报告可在隔离环境复现的代码问题
+body:
+  - type: markdown
+    attributes:
+      value: 请移除令牌、Cookie、个人账号、来源全文、截图和实际数据库后再提交。
+  - type: textarea
+    id: behavior
+    attributes:
+      label: 问题与预期行为
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 最小复现步骤
+      description: 优先使用项目示例、临时目录与离线夹具。
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 系统、Python 和项目版本
