@@ -1,5 +1,12 @@
 # 变更记录
 
+## 未发布
+
+- 安装后的 `xhs-pipeline` 与 `xhs-materials` 在重定向或管道输出中也写出 UTF-8 JSON。此前 Windows 旧代码页会把已完成的步骤报告为失败：`begin-run` 留下两小时租约却丢失令牌，生成器写出素材包后返回失败，重试又因目录已存在被拒绝。
+- 来源读取支持 GB2312、GBK、GB18030、Big5 编码的 RSS / Atom，以及声明为 GB2312/GBK、实际含 GBK 字符或为 UTF-8 的网页；按声明可以解码的页面，文字和来源哈希保持不变。不支持或未知的 XML 编码记为该来源的 `decode_failed`，不再中断其他来源的轮询。
+- 未变化的不完整来源经复查或重试后保持 `REVIEW_REQUIRED` 与原因 `Source incomplete`，不再显示为 `FETCHED`。
+- 字体只检查本平台的候选位置，并增加 Fedora、Arch 的 Noto Serif CJK 与 Liberation Serif 路径；找不到时列出实际检查的文件和 `fonts.*` / `XHS_*_FONT` 覆盖方式。
+
 ## 2.1.0 — 2026-10-05
 
 - 将离线生成器纳入项目，支持独立安装及 `xhs-pipeline` / `xhs-materials` 入口。

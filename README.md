@@ -48,6 +48,8 @@ python3 -m venv .venv
 
 `init` 拒绝覆盖已有配置。实际账号、来源订阅、字体、发布策略及私有凭据路径由使用者填写。`doctor` 只做本地检查，不发起平台提交；没有绑定账号和发布后端时，列出的发布阻塞是预期结果。
 
+`xhs-pipeline` 与 `xhs-materials` 都输出 UTF-8 JSON，重定向到文件或管道时也一样。PowerShell 按 `[Console]::OutputEncoding` 解码原生命令输出；需要把结果保存到变量时，先执行 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`。
+
 [工作流说明](docs/workflow.md)介绍租约、草稿、逐图任务与发布回查；[接入说明](docs/integrations.md)介绍可选服务和能力限制。Python 命令只推进已接入的阶段，不会自行完成代理创作、调用 Image 或创建 Codex 定时任务。
 
 ## 项目结构

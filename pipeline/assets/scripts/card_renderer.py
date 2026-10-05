@@ -4,6 +4,7 @@ import math
 import os
 from pathlib import Path
 import random
+import sys
 import unicodedata
 
 from PIL import Image, ImageDraw, ImageFont
@@ -360,23 +361,43 @@ def _draw_ornament(draw, ornament, color, cx, y):
         draw.ellipse([cx - 6, y + 1, cx + 6, y + 13], fill=(200, 150, 90))
 
 
+def font_candidates(platform=None):
+    """System files for the documented default fonts on this platform, in priority order."""
+    platform = platform or sys.platform
+    if platform == "win32":
+        directory = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
+        return {"cjk": [directory / "simsun.ttc"], "latin": [directory / "times.ttf"]}
+    if platform == "darwin":
+        return {"cjk": [Path("/System/Library/Fonts/Supplemental/Songti.ttc")],
+                "latin": [Path("/System/Library/Fonts/Supplemental/Times New Roman.ttf"),
+                          Path("/Library/Fonts/Times New Roman.ttf")]}
+    # Debian/Ubuntu, then Fedora and Arch package locations of the same families.
+    shared = Path("/usr/share/fonts")
+    return {"cjk": [shared / "opentype/noto/NotoSerifCJK-Regular.ttc",
+                    shared / "google-noto-serif-cjk-fonts/NotoSerifCJK-Regular.ttc",
+                    shared / "noto-cjk/NotoSerifCJK-Regular.ttc"],
+            "latin": [shared / "truetype/msttcorefonts/Times_New_Roman.ttf",
+                      shared / "truetype/liberation2/LiberationSerif-Regular.ttf",
+                      shared / "truetype/liberation/LiberationSerif-Regular.ttf",
+                      shared / "liberation-serif/LiberationSerif-Regular.ttf",
+                      shared / "liberation/LiberationSerif-Regular.ttf"]}
+
+
 def resolve_fonts(cjk=None, latin=None):
-    directory = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
-    candidates = {
-        "cjk": [directory / "simsun.ttc", Path("/System/Library/Fonts/Supplemental/Songti.ttc"),
-                Path("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc")],
-        "latin": [directory / "times.ttf", Path("/System/Library/Fonts/Supplemental/Times New Roman.ttf"),
-                  Path("/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf"),
-                  Path("/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf"),
-                  Path("/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf")],
-    }
+    candidates = font_candidates()
     requested = {"cjk": cjk or os.environ.get("XHS_CJK_FONT"),
                  "latin": latin or os.environ.get("XHS_LATIN_FONT")}
-    paths = {role: Path(value).expanduser() if value else next((p for p in candidates[role] if p.is_file()), candidates[role][0])
-             for role, value in requested.items()}
-    for role, path in paths.items():
-        if not path.is_file():
-            raise ValueError(f"Missing {role} font: {path}. Supply fonts.{role} explicitly.")
+    paths = {}
+    for role, value in requested.items():
+        remedy = f"Supply fonts.{role} or XHS_{role.upper()}_FONT with an installed font file."
+        if value:
+            path = Path(value).expanduser()
+            if not path.is_file():
+                raise ValueError(f"Missing {role} font: {path}. {remedy}")
+        else:
+            path = next((p for p in candidates[role] if p.is_file()), None)
+            if path is None:
+                raise ValueError(f"Missing {role} font; checked {', '.join(map(str, candidates[role]))}. {remedy}")
         paths[role] = str(path.resolve())
     return paths
 

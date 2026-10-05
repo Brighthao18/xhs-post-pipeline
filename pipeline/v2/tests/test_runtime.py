@@ -198,6 +198,24 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(StateError):
             self.runtime.draft(job["id"], self.content(result))
 
+    def test_unchanged_partial_source_recheck_still_requires_source_review(self):
+        job = self.import_job()
+        evidence = self.workspace / "incomplete.html"
+        evidence.write_text("<html><body>请完成下方验证</body></html>", encoding="utf-8")
+        data = {"url": job["article"]["url"], "evidence_path": str(evidence),
+                "retrieval_method": "unit_fixture", "fetched_at": now_iso()}
+        partial = self.runtime.ingest_source(job["id"], data)
+        self.assertEqual((partial["status"], partial["reason"]), ("REVIEW_REQUIRED", "Source incomplete"))
+        for pending in ("SOURCE_RECHECK", "FETCH_RETRY"):
+            with self.subTest(pending=pending):
+                self.runtime.store.update(job["id"], status=pending, reason="Recheck requested", retry_at=now_iso())
+                rechecked = self.runtime.ingest_source(job["id"], data)
+                self.assertEqual(rechecked["source_hash"], partial["source_hash"])
+                self.assertEqual((rechecked["status"], rechecked["reason"], rechecked["retry_at"]),
+                                 ("REVIEW_REQUIRED", "Source incomplete", None))
+                action = next(entry["action"] for entry in self.runtime.next()["work"] if entry.get("job", {}).get("id") == job["id"])
+                self.assertEqual(action, "source_review")
+
     def test_baseline_poll_does_not_publish_history_but_new_item_is_work(self):
         item = {"id": "history", "url": "https://example.com/history", "title": "已有文章"}
         write_json(self.feed_path, {"articles": [item]})
@@ -211,6 +229,17 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(len(second["sources"][0]["added"]), 1)
         self.assertEqual(len(self.runtime.poll()["sources"][0]["added"]), 0)
         self.assertEqual(self.runtime.next()["work"][0]["action"], "acquire")
+
+    def test_undecodable_feed_is_recorded_without_stopping_other_sources(self):
+        self.runtime.config["sources"].insert(0, {"id": "legacy-feed", "type": "rss", "enabled": True,
+                                                   "url": "https://example.com/feed.xml", "new_only": True})
+        feed = b'<?xml version="1.0" encoding="unknown-charset"?><rss version="2.0"><channel><title>Feed</title></channel></rss>'
+        with patch("pipeline.v2.sources._fetch", return_value=(feed, "application/rss+xml", "https://example.com/feed.xml")):
+            result = self.runtime.poll()
+        self.assertEqual([(entry["source_id"], entry["ok"]) for entry in result["sources"]],
+                         [("legacy-feed", False), ("unit-source", True)])
+        self.assertEqual(result["sources"][0]["error_code"], "decode_failed")
+        self.assertEqual(self.runtime.store.source_state("legacy-feed")["health"], "error")
 
     def test_wrong_article_draft_fails_without_consuming_revision(self):
         job = self.ingest(self.import_job())

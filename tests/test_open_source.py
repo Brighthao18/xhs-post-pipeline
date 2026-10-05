@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -16,6 +17,8 @@ from pipeline.v2.quality import generator_module, normalize_draft
 from scripts.audit_public import audit, scan_bytes
 from scripts.export_public import export_public
 from scripts.public_files import read_public_files
+
+REPOSITORY = Path(__file__).resolve().parents[1]
 
 
 class PortableConfigTests(unittest.TestCase):
@@ -101,6 +104,51 @@ class PortableConfigTests(unittest.TestCase):
                 generator.resolve_fonts()
             selected = generator.resolve_fonts(cjk=fonts["cjk"], latin=fonts["latin"])
         self.assertEqual(selected, fonts)
+
+    def test_missing_system_font_reports_checked_files_and_overrides(self):
+        from pipeline.assets.scripts import card_renderer
+        self.assertTrue(all(path.is_absolute() for paths in card_renderer.font_candidates().values() for path in paths))
+        missing = {"cjk": [self.root / "missing-cjk.ttc"], "latin": [self.root / "missing-latin.ttf"]}
+        with patch.dict(os.environ, {"XHS_CJK_FONT": "", "XHS_LATIN_FONT": ""}), \
+                patch.object(card_renderer, "font_candidates", return_value=missing):
+            with self.assertRaises(ValueError) as caught:
+                card_renderer.resolve_fonts()
+        self.assertIn(str(missing["cjk"][0]), str(caught.exception))
+        self.assertIn("XHS_CJK_FONT", str(caught.exception))
+
+
+class CommandEncodingTests(unittest.TestCase):
+    """Windows pipes default to a legacy code page; both commands still print UTF-8 JSON."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="xhs-command-encoding-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def run_command(self, module, *args):
+        # Installed console scripts call main() directly, bypassing ``python -m``.
+        environment = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0")
+        result = subprocess.run([sys.executable, "-c", "import sys; from " + module + " import main; sys.exit(main())", *args],
+                                cwd=REPOSITORY, env=environment, capture_output=True, timeout=180)
+        output = result.stdout.decode("utf-8")
+        self.assertEqual(result.returncode, 0, output + result.stderr.decode("utf-8", "replace"))
+        return json.loads(output)
+
+    def test_workflow_command_returns_lease_for_chinese_owner(self):
+        profile = self.root / "config/local.json"
+        initialize_config(self.root, profile)
+        lease = self.run_command("pipeline.v2.__main__", "--config", str(profile), "begin-run", "--owner", "本地审阅")
+        self.assertEqual(lease["owner"], "本地审阅")
+        released = self.run_command("pipeline.v2.__main__", "--config", str(profile), "--lease-token", lease["lease_token"], "end-run")
+        self.assertTrue(released["released"])
+
+    def test_material_command_reports_its_completed_bundle(self):
+        example = REPOSITORY / "examples/content.json"
+        target = self.root / "素材"
+        result = self.run_command("pipeline.assets.scripts.generate", "--input", str(example), "--output-dir", str(target))
+        self.assertTrue(result["success"])
+        self.assertEqual(result["title"], json.loads(example.read_text(encoding="utf-8"))["title"])
+        self.assertTrue((target / "_meta.json").is_file())
 
 
 class PublicExportTests(unittest.TestCase):

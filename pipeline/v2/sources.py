@@ -9,6 +9,7 @@ source verification.
 
 from __future__ import annotations
 
+import codecs
 import copy
 import hashlib
 import json
@@ -43,6 +44,17 @@ VERIFICATION_TEXT = (
     "该内容已被发布者删除", "此内容因违规无法查看", "该公众号已迁移",
     "verify you are human", "access denied", "captcha verification",
 )
+# WHATWG charset labels which Python's codec registry does not know.
+CHARSET_ALIASES = {
+    "csgb2312": "gb2312", "gb_2312": "gb2312", "gb_2312-80": "gb2312", "x-gbk": "gbk",
+    "cn-big5": "big5", "x-x-big5": "big5",
+}
+# GB2312/GBK-labelled text that fails strict decoding is usually UTF-8 under a
+# stale tag, or GBK/GB18030 text under a narrower label. The declared codec is
+# always tried first, so decodable pages keep identical text and source hashes.
+CHARSET_FALLBACKS = {"gb2312": ("utf-8", "gb18030"), "gbk": ("utf-8", "gb18030")}
+# Expat reads UTF-8/16 and single-byte charsets only; decode these feeds first.
+DECODED_XML_CODECS = frozenset({"gb2312", "gbk", "gb18030", "big5", "big5hkscs", "cp950"})
 
 
 class SourceError(RuntimeError):
@@ -486,15 +498,34 @@ def _read_fixture(path: str | Path, source: dict) -> bytes:
     return body
 
 
+def _codecs(label: str | None) -> tuple[str, ...]:
+    """Return the declared codec, then fallbacks for mislabelled legacy Chinese text."""
+    if not label:
+        return ("utf-8-sig",)
+    try:
+        name = codecs.lookup(CHARSET_ALIASES.get(label.lower(), label)).name
+    except LookupError:
+        return ()
+    if name == "utf-8":
+        # Like an unlabelled body, ignore a byte order mark instead of failing JSON.
+        return ("utf-8-sig",)
+    return (name, *CHARSET_FALLBACKS.get(name, ()))
+
+
+def _decode_label(body: bytes, label: str | None) -> str:
+    for codec in _codecs(label):
+        try:
+            return body.decode(codec)
+        except (UnicodeError, LookupError):
+            continue
+    raise SourceError("decode_failed", "The source text encoding could not be decoded.")
+
+
 def _decode(body: bytes, content_type: str = "") -> str:
     charset = re.search(r"charset\s*=\s*[\"']?([a-zA-Z0-9_.-]+)", content_type, re.I)
     if not charset:
         charset = re.search(r"<meta[^>]+charset\s*=\s*[\"']?([a-zA-Z0-9_.-]+)", body[:8192].decode("ascii", "ignore"), re.I)
-    codec = charset.group(1) if charset else "utf-8-sig"
-    try:
-        return body.decode(codec)
-    except (UnicodeError, LookupError):
-        raise SourceError("decode_failed", "The source text encoding could not be decoded.") from None
+    return _decode_label(body, charset.group(1) if charset else None)
 
 
 def _local_name(tag: str) -> str:
@@ -584,15 +615,32 @@ def _article(source: dict, data: dict, base_url: str) -> dict:
     return result
 
 
+def _xml_markup(body: bytes) -> bytes | str:
+    """Decode a legacy Chinese feed which expat cannot read; keep other XML as bytes."""
+    declared = re.match(rb"<\?xml\s[^>]*?\bencoding\s*=\s*[\"']([A-Za-z0-9._-]+)[\"']", body)
+    label = declared.group(1).decode("ascii") if declared else None
+    if not label or (_codecs(label) or (None,))[0] not in DECODED_XML_CODECS:
+        return body
+    text = _decode_label(body, label)
+    # Text is parsed as UTF-8 whatever it declares; keep the entity guard on it too.
+    probe = text.upper()
+    if "<!DOCTYPE" in probe or "<!ENTITY" in probe:
+        raise SourceError("unsafe_xml", "XML entity or document type declarations are not accepted.")
+    return text
+
+
 def _parse_xml(body: bytes, source: dict, base_url: str) -> list[dict]:
     # Avoid entity/DTD expansion, including declarations in UTF-16 feeds.
     probe = body.replace(b"\x00", b"").upper()
     if b"<!DOCTYPE" in probe or b"<!ENTITY" in probe:
         raise SourceError("unsafe_xml", "XML entity or document type declarations are not accepted.")
     try:
-        root = ET.fromstring(body)
+        root = ET.fromstring(_xml_markup(body))
     except ET.ParseError:
         raise SourceError("invalid_feed", "The source returned malformed XML.") from None
+    except (ValueError, LookupError):
+        # Expat's reaction to other multi-byte or unknown declared encodings.
+        raise SourceError("decode_failed", "The source text encoding could not be decoded.") from None
     kind = _local_name(root.tag)
     items: list[dict] = []
     if kind == "rss" and source["type"] == "rss":

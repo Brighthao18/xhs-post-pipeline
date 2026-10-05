@@ -147,12 +147,18 @@ class Runtime(ImageWorkflow, BackendWorkflow):
         source_hash = digest({key: previous.get(key) for key in ("url", "title", "author", "published_at", "content", "coverage")})
         if job["source_hash"] == source_hash:
             if job["status"] in ("SOURCE_RECHECK", "FETCH_RETRY"):
+                reason = None
                 if job["artifacts"]:
                     health = self.source(job["source_id"]).get("domain") == "health"
                     status = "READY" if job["review"] and self._review_valid(job, job["review"], health=health, final=True) else "MATERIALS_GENERATED"
+                elif job["draft"]:
+                    status = "DRAFTED"
+                elif job["article"].get("coverage") == "full" and job["article"].get("content"):
+                    status = "FETCHED"
                 else:
-                    status = "DRAFTED" if job["draft"] else "FETCHED"
-                self.store.update(job_id, status=status, reason=None, retry_at=None)
+                    # The same incomplete source still needs review, not drafting.
+                    status, reason = "REVIEW_REQUIRED", "Source incomplete"
+                self.store.update(job_id, status=status, reason=reason, retry_at=None)
                 self.store.event("source_rechecked_unchanged", job_id)
             return
         self.store.update(job_id, article=previous, source_hash=source_hash,
