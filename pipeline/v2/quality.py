@@ -31,13 +31,14 @@ def normalize_draft(raw, skill_dir, author):
     return content, warnings
 
 
-def verify_review(job, review, health=False, final=False):
+def verify_review(job, review, health=False, final=False, fidelity_required=False):
     if review.get("job_id") != job["id"] or review.get("content_hash") != job["content_hash"] or review.get("source_hash") != job["source_hash"]:
         raise ValueError("Review hashes/job_id do not match the current source and content")
     checks = review.get("checks", {})
     if not isinstance(checks, dict) or any(type(v) is not bool for v in checks.values()):
         raise ValueError("Review checks must be explicit booleans")
-    required = BASE_CHECKS + (("domain_safety",) if health else ()) + (("visual",) if final else ())
+    fidelity_required = fidelity_required or bool(job.get("source_outline"))
+    required = BASE_CHECKS + (("source_fidelity",) if fidelity_required else ()) + (("domain_safety",) if health else ()) + (("visual",) if final else ())
     passed = all(checks.get(key) is True for key in required)
     if review.get("passed") is True and not all(checks.get(key) is True for key in required + ("visual",)):
         raise ValueError("passed=true requires every semantic and visual check")
@@ -55,6 +56,10 @@ def verify_review(job, review, health=False, final=False):
         raise ValueError("Health review needs actual checked evidence URLs")
     for claim in job["draft"].get("claim_checks", []):
         if claim["decision"] in ("retain", "qualify") and not claim.get("evidence_urls"):
+            passed = False
+    if fidelity_required:
+        from .fidelity import fidelity_issues
+        if fidelity_issues(job, review):
             passed = False
     return passed
 

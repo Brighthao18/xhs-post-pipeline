@@ -11,6 +11,7 @@ from .store import Store, StateError
 from .quality import BASE_CHECKS, normalize_draft, verify_review, verify_artifacts
 from .backend_runtime import BackendWorkflow
 from .image_jobs import ImageWorkflow
+from .fidelity import normalize_outline, current_outline, validate_subject, fidelity_issues
 
 
 class Runtime(ImageWorkflow, BackendWorkflow):
@@ -21,6 +22,35 @@ class Runtime(ImageWorkflow, BackendWorkflow):
 
     def check_run(self, required=False):
         self.store.check_run(self.lease_token, required=required)
+
+    def _requires_fidelity(self):
+        return self.config.get("editorial", {}).get("require_source_fidelity", False)
+
+    def _review_valid(self, job, review, health=False, final=False):
+        return verify_review(job, review, health=health, final=final,
+                             fidelity_required=self._requires_fidelity())
+
+    def source_outline(self, job_id, data):
+        self.check_run(required=True)
+        job = self.store.get_job(job_id)
+        outline = normalize_outline(data, job["article"], job["source_hash"])
+        outline_hash = digest(outline)
+        with self.store.transaction():
+            current = self.store.get_job(job_id)
+            if self.store.db.execute("SELECT 1 FROM attempts WHERE job_id=?", (job_id,)).fetchone():
+                raise StateError("Publication intent freezes the source outline")
+            if current["source_hash"] != job["source_hash"]:
+                raise StateError("Source changed while extracting its outline")
+            if current.get("source_outline_hash") == outline_hash:
+                return {"job": current, "reused": True}
+            self.store.db.execute("INSERT OR REPLACE INTO source_outlines VALUES(?,?,?,?,?)",
+                                  (job_id, job["source_hash"], outline_hash, json.dumps(outline, ensure_ascii=False), now_iso()))
+            self.store._update(job_id, draft=None, content_hash=None, review=None, artifacts=None,
+                               status="FETCHED", reason=None)
+            if self.store.db.execute("SELECT 1 FROM sqlite_master WHERE name='backend_sessions'").fetchone():
+                self.store.db.execute("DELETE FROM backend_sessions WHERE job_id=?", (job_id,))
+            self.store.event("source_outline_saved", job_id, source_hash=job["source_hash"], outline_hash=outline_hash)
+        return {"job": self.store.get_job(job_id), "reused": False}
 
     def _verify_materials(self, job):
         if job["draft"].get("visual"):
@@ -119,7 +149,7 @@ class Runtime(ImageWorkflow, BackendWorkflow):
             if job["status"] in ("SOURCE_RECHECK", "FETCH_RETRY"):
                 if job["artifacts"]:
                     health = self.source(job["source_id"]).get("domain") == "health"
-                    status = "READY" if job["review"] and verify_review(job, job["review"], health=health, final=True) else "MATERIALS_GENERATED"
+                    status = "READY" if job["review"] and self._review_valid(job, job["review"], health=health, final=True) else "MATERIALS_GENERATED"
                 else:
                     status = "DRAFTED" if job["draft"] else "FETCHED"
                 self.store.update(job_id, status=status, reason=None, retry_at=None)
@@ -154,11 +184,14 @@ class Runtime(ImageWorkflow, BackendWorkflow):
         job = self.store.get_job(job_id)
         if job["article"].get("coverage") != "full" or not job["source_hash"]:
             raise StateError("Complete source acquisition is required before drafting")
+        outline = current_outline(job) if self._requires_fidelity() or job.get("source_outline") else None
         if job["revision"] >= self.config["policy"].get("max_revision_rounds", 2) + 1:
             raise StateError("Revision limit reached; resolve the job explicitly")
         if isinstance(data, dict) and "fonts" not in data and self.config.get("fonts"):
             data = {**data, "fonts": self.config["fonts"]}
         draft, warnings = normalize_draft(data, self.config["skill_dir"], self.config.get("author", "示例作者"))
+        if outline:
+            validate_subject(outline, draft)
         if self.config.get("image_policy", {}).get("require_five_images") and not draft.get("visual"):
             raise StateError("Current content policy requires visual and one cover plus four native Image cards")
         self.check_public_copy(draft)
@@ -182,13 +215,14 @@ class Runtime(ImageWorkflow, BackendWorkflow):
         self.check_public_copy(job["draft"])
         health = self.source(job["source_id"]).get("domain") == "health"
         final = bool(job["artifacts"])
-        passed = verify_review(job, data, health=health, final=final)
+        passed = self._review_valid(job, data, health=health, final=final)
+        source_issues = fidelity_issues(job, data) if self._requires_fidelity() or job.get("source_outline") else []
         if final and passed:
             facts = self._verify_materials(job)
             if data.get("manifest_hash") != facts["manifest_hash"]:
                 raise StateError("Visual review is not bound to current image files")
         self.store.update(job_id, expected_content_hash=job["content_hash"], review=data, status="READY" if final and passed else "DRAFTED",
-                          reason=None if passed else "Review incomplete or unresolved issues")
+                          reason=None if passed else ("Source fidelity: " + "; ".join(source_issues) if source_issues else "Review incomplete or unresolved issues"))
         return self.store.get_job(job_id)
 
     def render(self, job_id):
@@ -198,7 +232,7 @@ class Runtime(ImageWorkflow, BackendWorkflow):
             facts = self._verify_materials(job)
             return {"job": job, **facts}
         health = self.source(job["source_id"]).get("domain") == "health"
-        if not job["review"] or not verify_review(job, job["review"], health=health, final=False):
+        if not job["review"] or not self._review_valid(job, job["review"], health=health, final=False):
             raise StateError("Semantic/rights/domain checks must pass before rendering")
         work = Path(self.config["work_dir"]) / job_id
         input_path = work / "draft.json"
@@ -262,7 +296,7 @@ class Runtime(ImageWorkflow, BackendWorkflow):
         if job["article"].get("is_fixture") is True or self.source(job["source_id"]).get("type") == "fixture":
             raise StateError("Fixture sources can never authorize live publication")
         health = self.source(job["source_id"]).get("domain") == "health"
-        if not job["review"] or not verify_review(job, job["review"], health=health, final=True):
+        if not job["review"] or not self._review_valid(job, job["review"], health=health, final=True):
             raise StateError("Final review missing")
         facts = self._verify_materials(job)
         if job["review"].get("manifest_hash") != facts["manifest_hash"]:
@@ -287,13 +321,15 @@ class Runtime(ImageWorkflow, BackendWorkflow):
                 continue
             if job["status"] in ("DISCOVERED", "FETCH_RETRY", "SOURCE_RECHECK"):
                 action = "acquire"
+            elif self._requires_fidelity() and not job.get("source_outline") and job["article"].get("coverage") == "full":
+                action = "source_outline"
             elif not job["draft"]:
                 action = "draft" if job["article"].get("coverage") == "full" else "source_review"
             elif not job["review"]:
                 action = "visual_review" if job["artifacts"] else "semantic_review"
             elif not job["artifacts"]:
                 health = self.source(job["source_id"]).get("domain") == "health"
-                if not verify_review(job, job["review"], health=health, final=False):
+                if not self._review_valid(job, job["review"], health=health, final=False):
                     action = "revise"
                 elif self.config.get("image_policy", {}).get("require_five_images") and not job["draft"].get("visual"):
                     action = "revise"

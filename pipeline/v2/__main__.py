@@ -25,7 +25,7 @@ def main(argv=None):
     entry = commands.add_parser("import-url")
     entry.add_argument("--source-id", required=True)
     entry.add_argument("--url", required=True)
-    for name in ("ingest-source", "draft", "review", "backend-review"):
+    for name in ("ingest-source", "source-outline", "draft", "review", "backend-review"):
         cmd = commands.add_parser(name)
         cmd.add_argument("--job-id", required=True)
         cmd.add_argument("--input", type=Path, required=True)
@@ -78,7 +78,7 @@ def main(argv=None):
             result = runtime.backend_identity(bind=name == "bind-backend-account")
         elif name == "import-url":
             result = runtime.import_url(args.source_id, args.url)
-        elif name in ("ingest-source", "draft", "review", "backend-review", "plan-images", "image-intent", "image-result", "image-inspect", "image-block"):
+        elif name in ("ingest-source", "source-outline", "draft", "review", "backend-review", "plan-images", "image-intent", "image-result", "image-inspect", "image-block"):
             result = getattr(runtime, name.replace("-", "_"))(args.job_id, read_json(args.input))
         elif name == "image-status":
             result = runtime.image_status(args.job_id)

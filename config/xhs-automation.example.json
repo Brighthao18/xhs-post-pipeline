@@ -18,5 +18,5 @@
     "publish_hours": [9, 21]
   },
   "publication_backend": {"type": "disabled", "reason": "尚未配置和验收发布后端"},
-  "editorial": {"excluded_source_names": []}
+  "editorial": {"excluded_source_names": [], "require_source_fidelity": true}
 }

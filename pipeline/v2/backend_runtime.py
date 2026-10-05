@@ -155,7 +155,7 @@ class BackendWorkflow:
         if not account.get('user_id'):
             raise StateError('The authenticated backend user_id must be observed and bound')
         health = self.source(job['source_id']).get('domain') == 'health'
-        if not job['review'] or not verify_review(job, job['review'], health=health, final=True):
+        if not job['review'] or not self._review_valid(job, job['review'], health=health, final=True):
             raise StateError('A current final content/material review is required')
         files = self._verify_materials(job)
         if job['review'].get('manifest_hash') != files['manifest_hash']:

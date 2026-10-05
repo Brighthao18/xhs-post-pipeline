@@ -71,6 +71,7 @@ pipeline/v2/__main__.py
 pipeline/v2/backend.py
 pipeline/v2/backend_runtime.py
 pipeline/v2/config.py
+pipeline/v2/fidelity.py
 pipeline/v2/image_jobs.py
 pipeline/v2/publication.py
 pipeline/v2/quality.py
@@ -79,6 +80,7 @@ pipeline/v2/sources.py
 pipeline/v2/store.py
 pipeline/v2/tests/test_backend.py
 pipeline/v2/tests/test_backend_workflow.py
+pipeline/v2/tests/test_fidelity.py
 pipeline/v2/tests/test_image_workflow.py
 pipeline/v2/tests/test_publication.py
 pipeline/v2/tests/test_runtime.py
