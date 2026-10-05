@@ -1,5 +1,6 @@
 """Create a local XHS material bundle from a UTF-8 JSON file. No network or publishing."""
 import argparse
+import codecs
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -288,7 +289,22 @@ def generate_bundle(content, warnings, body_characters, target, generated_at, im
         raise ValueError(f"{error} Diagnostic directory: {stage}") from error
 
 
+def utf8_streams():
+    """Print UTF-8 JSON even when a Windows pipe defaults to a legacy code page.
+
+    A bundle is complete before its result is printed; an encoding failure must
+    not report it as failed, because a retry then refuses the existing output.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if codecs.lookup(stream.encoding).name != "utf-8":
+                stream.reconfigure(encoding="utf-8")
+        except (AttributeError, LookupError, TypeError, ValueError):
+            pass  # Detached streams and in-memory test buffers keep their own encoding.
+
+
 def main():
+    utf8_streams()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, help="UTF-8 content JSON")
     output = parser.add_mutually_exclusive_group()

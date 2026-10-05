@@ -211,6 +211,62 @@ class SourceTests(unittest.TestCase):
                 discover({"id": "rss", "type": "rss", "url": "https://example.com/feed"})
         self.assertEqual(caught.exception.code, "unsafe_xml")
 
+    def test_legacy_chinese_feeds_are_decoded_before_parsing(self):
+        # Expat rejects every multi-byte declaration, yet GB/Big5 feeds remain common.
+        cases = (("GB2312", "gb2312", "示例频道"), ("gb2312", "gbk", "朱镕基谈阅读"), ("x-gbk", "gbk", "朱镕基谈阅读"),
+                 ("GB18030", "gb18030", "𠀀字扩展"), ("big5", "big5", "範例頻道"), ("gb2312", "utf-8", "过期声明的频道"))
+        routes = {}
+        for index, (label, codec, title) in enumerate(cases):
+            rss = ('<?xml version="1.0" encoding="' + label + '"?><rss version="2.0"><channel><title>' + title + '</title>'
+                   '<item><guid>legacy</guid><title>' + title + '</title><link>/article</link>'
+                   '<description>摘要' + title + '</description></item></channel></rss>')
+            routes["/rss/" + str(index)] = (200, "application/rss+xml", rss.encode(codec))
+        with _HTTPFixture(routes) as base:
+            for index, (label, codec, title) in enumerate(cases):
+                with self.subTest(label=label, codec=codec):
+                    result = discover({"id": "legacy", "type": "rss", "url": base + "/rss/" + str(index)})
+                    self.assertEqual(result["articles"][0]["title"], title)
+                    self.assertEqual(result["articles"][0]["content"], "摘要" + title)
+
+    def test_unsupported_feed_encoding_is_a_typed_source_failure(self):
+        cursor = {"seen": {}, "marker": "persist"}
+        for label in ("shift_jis", "unknown-charset"):
+            rss = '<?xml version="1.0" encoding="' + label + '"?><rss version="2.0"><channel><title>Feed</title></channel></rss>'
+            with self.subTest(label=label), patch("pipeline.v2.sources._fetch", return_value=(rss.encode("ascii"), "text/xml", "https://example.com/feed")):
+                with self.assertRaises(SourceError) as caught:
+                    discover({"id": "rss", "type": "rss", "url": "https://example.com/feed"}, cursor)
+                self.assertEqual(caught.exception.code, "decode_failed")
+        self.assertEqual(cursor, {"seen": {}, "marker": "persist"})
+
+    def test_legacy_feed_decoding_keeps_entity_guard(self):
+        malicious = '<?xml version="1.0" encoding="gb2312"?><!DOCTYPE rss [<!ENTITY 秘密 SYSTEM "file:///C:/secret">]><rss><channel><title>&秘密;</title></channel></rss>'
+        with patch("pipeline.v2.sources._fetch", return_value=(malicious.encode("gb2312"), "text/xml", "https://example.com/feed")):
+            with self.assertRaises(SourceError) as caught:
+                discover({"id": "rss", "type": "rss", "url": "https://example.com/feed"})
+        self.assertEqual(caught.exception.code, "unsafe_xml")
+
+    def test_mislabelled_legacy_pages_decode_without_changing_decodable_text(self):
+        page = '<html><head><meta charset="gb2312"></head><body><div id="js_content"><p>{}</p></div></body></html>'
+        routes = {
+            "/gbk": (200, "text/html", page.format("朱镕基" + LONG_TEXT).encode("gbk")),
+            "/stale-label": (200, "text/html", page.format(LONG_TEXT).encode("utf-8")),
+            # 0xA1A4 decodes under GB2312 itself, so its GB2312 mapping (U+30FB) must survive.
+            "/decodable": (200, "text/html; charset=GB2312", page.format(LONG_TEXT).encode("gb2312").replace(b"</p>", b"\xa1\xa4</p>")),
+        }
+        with _HTTPFixture(routes) as base:
+            gbk, stale, decodable = (acquire({"url": base + path}, {"id": "reader"}) for path in routes)
+        self.assertEqual(gbk["coverage"], "full")
+        self.assertIn("朱镕基", gbk["content"])
+        self.assertIn(LONG_TEXT, stale["content"])
+        self.assertTrue(decodable["content"].endswith(LONG_TEXT + "\u30fb"))
+
+    def test_utf8_labelled_json_feed_may_start_with_byte_order_mark(self):
+        feed = {"version": "https://jsonfeed.org/version/1.1", "title": "Source", "items": [{"id": "p1", "url": "/article", "title": "标题", "content_text": "正文"}]}
+        body = b"\xef\xbb\xbf" + json.dumps(feed, ensure_ascii=False).encode("utf-8")
+        with _HTTPFixture({"/feed": (200, "application/feed+json; charset=utf-8", body)}) as base:
+            result = discover({"id": "json", "type": "json_feed", "url": base + "/feed"})
+        self.assertEqual(result["articles"][0]["title"], "标题")
+
     def test_response_size_limit_is_enforced(self):
         with _HTTPFixture({"/large": (200, "text/html", "X" * 3000)}) as base:
             with self.assertRaises(SourceError) as caught:

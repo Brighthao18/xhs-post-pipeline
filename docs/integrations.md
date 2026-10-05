@@ -4,7 +4,7 @@
 
 | 能力 | 接入方式 | 当前范围 |
 | --- | --- | --- |
-| RSS / Atom / JSON Feed | `pipeline.v2.sources` 标准库读取 | 正文仍需单独取得并核查 |
+| RSS / Atom / JSON Feed | `pipeline.v2.sources` 标准库读取 | 除 UTF-8/UTF-16 与单字节编码外，也读取 GB2312、GBK、GB18030、Big5；正文仍需单独取得并核查 |
 | WeRSS | `integrations/werss/` 本地容器引导与严格刷新端点 | WeRead 模式仅验证最新一篇，不保证历史补抓或多篇覆盖 |
 | 原生 Image | 代理实际调用 Image，登记本地结果 | 脚本只记录协议，不提供模型调用或计费服务 |
 | 小红书发布 | `integrations/xiaohongshu-mcp/` 固定上游版本和源码补丁 | 需用户独立登录、绑定、编辑器及提交后回查 |

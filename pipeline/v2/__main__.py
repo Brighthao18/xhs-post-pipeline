@@ -1,5 +1,6 @@
 """CLI JSON protocol for Codex scheduled executions; no autonomous model calls."""
 import argparse
+import codecs
 import json
 from pathlib import Path
 import sys
@@ -8,7 +9,22 @@ from . import __version__
 from .runtime import Runtime
 
 
+def _utf8_streams():
+    """Keep the protocol UTF-8 when a Windows pipe defaults to a legacy code page.
+
+    Otherwise a committed step, such as a new run lease, could be reported as a
+    failure because its result cannot be printed.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if codecs.lookup(stream.encoding).name != "utf-8":
+                stream.reconfigure(encoding="utf-8")
+        except (AttributeError, LookupError, TypeError, ValueError):
+            pass  # Detached streams and in-memory test buffers keep their own encoding.
+
+
 def main(argv=None):
+    _utf8_streams()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--config", type=Path)
@@ -115,5 +131,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8")
     raise SystemExit(main())

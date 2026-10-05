@@ -19,7 +19,7 @@
 
 ## 字体
 
-Windows 优先使用系统宋体和 Times New Roman。macOS 尝试 Songti / Times New Roman；Linux 尝试 Noto Serif CJK / Times New Roman，找不到后者时使用 Liberation Serif。Linux 的替代字体不等同于宋体或 Times New Roman；`--doctor` 返回实际文件和字体名称，便于确认。
+Windows 优先使用系统宋体和 Times New Roman。macOS 尝试 Songti / Times New Roman；Linux 在 Debian/Ubuntu、Fedora 与 Arch 的常见安装位置尝试 Noto Serif CJK / Times New Roman，找不到后者时使用 Liberation Serif。Linux 的替代字体不等同于宋体或 Times New Roman；`--doctor` 返回实际文件和字体名称，便于确认。
 
 优先级是素材或配置中的 `fonts` → 环境变量 → 系统候选。配置示例：
 
@@ -34,7 +34,7 @@ export XHS_CJK_FONT=/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc
 export XHS_LATIN_FONT=/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf
 ```
 
-缺字或找不到字体会报错；不会静默丢字。项目和发行包都不附带商用字体。安装系统字体后重新检查，适用许可由字体提供方决定。
+缺字或找不到字体会报错；不会静默丢字。找不到系统字体时，错误会列出本平台实际检查的文件。项目和发行包都不附带商用字体。安装系统字体后重新检查，适用许可由字体提供方决定。
 
 ## 来源与账号
 
