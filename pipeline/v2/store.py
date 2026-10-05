@@ -43,6 +43,8 @@ class Store:
         CREATE TABLE IF NOT EXISTS run_leases(name TEXT PRIMARY KEY,token TEXT NOT NULL,owner TEXT NOT NULL,expires_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,
           at TEXT NOT NULL,kind TEXT NOT NULL,job_id TEXT,details TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS source_outlines(job_id TEXT PRIMARY KEY REFERENCES jobs(id),
+          source_hash TEXT NOT NULL,outline_hash TEXT NOT NULL,payload TEXT NOT NULL,created_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS image_plans(job_id TEXT PRIMARY KEY REFERENCES jobs(id),
           creative_hash TEXT NOT NULL,source_hash TEXT NOT NULL,plan_hash TEXT NOT NULL,payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS image_jobs(id TEXT PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),
@@ -204,6 +206,9 @@ class Store:
         data = dict(row)
         for key in ("article", "draft", "review", "artifacts"):
             data[key] = json.loads(data[key]) if data[key] else None
+        outline = self.db.execute("SELECT * FROM source_outlines WHERE job_id=?", (job_id,)).fetchone()
+        data["source_outline"] = json.loads(outline["payload"]) if outline else None
+        data["source_outline_hash"] = outline["outline_hash"] if outline else None
         return data
 
     def jobs(self, statuses=None):
@@ -229,6 +234,8 @@ class Store:
             if expected_content_hash is not None and current["content_hash"] != expected_content_hash:
                 raise StateError("Content changed while this step was running")
             self._update(job_id, **fields)
+            if "source_hash" in fields and fields["source_hash"] != current["source_hash"]:
+                self.db.execute("DELETE FROM source_outlines WHERE job_id=?", (job_id,))
             article = fields.get("article")
             if article and article.get("canonical_article_id"):
                 alias = self.db.execute("SELECT job_id FROM aliases WHERE source_id=? AND alias=?", (current["source_id"], article["canonical_article_id"])).fetchone()

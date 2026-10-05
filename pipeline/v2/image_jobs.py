@@ -6,7 +6,7 @@ from pathlib import Path
 import shutil
 import uuid
 from .config import digest, now_iso, write_json
-from .quality import generator_module, verify_review
+from .quality import generator_module
 from .store import StateError
 
 
@@ -25,7 +25,7 @@ class ImageWorkflow:
         self.check_public_copy(job["draft"])
         if semantic:
             health = self.source(job["source_id"]).get("domain") == "health"
-            if not job["review"] or not verify_review(job, job["review"], health=health, final=False):
+            if not job["review"] or not self._review_valid(job, job["review"], health=health, final=False):
                 raise StateError("Semantic/rights/domain checks must pass before native image calls")
         return job, digest(job["draft"])
 
@@ -56,7 +56,8 @@ class ImageWorkflow:
         job, creative_hash = self._image_context(job_id)
         plan = self._active_image_plan(job_id)
         if (row["creative_hash"] != creative_hash or not plan
-                or plan["source_hash"] != job["source_hash"]):
+                or plan["source_hash"] != job["source_hash"]
+                or json.loads(plan["payload"]).get("source_outline_hash") != job.get("source_outline_hash")):
             raise StateError("Image task belongs to an obsolete content/source/visual version")
         for reference in json.loads(plan["payload"])["references"]:
             if self._image_api().file_hash(reference["path"]) != reference["sha256"]:
@@ -91,6 +92,8 @@ class ImageWorkflow:
             references.append(dict(ref, path=str(path.resolve()), sha256=self._image_api().file_hash(path)))
         payload = {"references": references, "source_hash": job["source_hash"],
                    "creative_hash": creative_hash, "requested_model_family": "gpt-image-2.5"}
+        if job.get("source_outline_hash"):
+            payload["source_outline_hash"] = job["source_outline_hash"]
         plan_hash = digest(payload)
         with self.store.transaction():
             self._image_context(job_id, semantic=True)

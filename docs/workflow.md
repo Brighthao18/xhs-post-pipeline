@@ -16,7 +16,13 @@ xhs-pipeline --config config/xhs-automation.local.json --lease-token <令牌> en
 
 ## 内容和图片
 
-完整来源获取后，通过 `draft --job-id <id> --input <草稿JSON>` 登记独立创作的内容。`review` 必须提供与当前 `job_id`、`source_hash`、`content_hash` 一致的逐项核查。健康领域还需要实际核对的证据 URL；勾选字段不是事实核查本身。
+完整来源获取后，新配置先通过 `source-outline --job-id <id> --input <提纲JSON>` 登记独立阅读得到的主题、读者问题、具体方法和必要条件。提纲绑定当前 `source_hash`；每项使用真实原文片段，`source_field` 默认为 `content`，来自标题时明确写 `title`。主题与必要方法标为 `required`，功效、机制和宣传承诺分别审阅，不能因删去不支持的论断而抹去主题。
+
+之后通过 `draft --job-id <id> --input <草稿JSON>` 登记独立创作的内容。`review` 必须提供与当前 `job_id`、`source_hash`、`content_hash` 和 `source_outline_hash` 一致的逐项核查，启用保真规则时需要 `checks.source_fidelity` 以及实际对照记录 `fidelity`。记录包括每项的 `retain/qualify/omit`、理由、当前输出字段和真实片段、语义判断，以及新增事实的证据 URL。必要要点必须在正文保留；主题也须出现在标题或封面及至少一张卡片中。只有勾选或只增加主题名称不能通过。健康领域还需要实际核对的证据 URL；字段匹配不是事实核查或语义审阅本身。
+
+来源或提纲变化会清除旧草稿、素材和审阅；文案变化后须重新读取原文核对，不能只替换旧审阅的哈希。未通过保真核查的版本不能进入制图、打包或提交。旧配置省略 `editorial.require_source_fidelity` 时保持兼容，但登记提纲的任务仍须提供对应核查。
+
+文末可按编辑要求列实际核查的专业机构与资料名称，公开格式与本地审阅分开：采集原文、完整核查链接和用途仍保存于 `sources`、`claim_checks` 及审阅记录。列出机构科普或证据概述时应说明实际资料类型，不能当作特定方法的直接疗效证据，也不能编造未阅读的文献。
 
 普通四卡内容可在语义核查通过后 `render`。五图内容使用 `visual.mode: imagegen_native`：
 

@@ -50,6 +50,10 @@ def load_config(path):
         raise ValueError("sources must be a list of objects with stable id")
     if len({s["id"] for s in sources}) != len(sources):
         raise ValueError("source ids must be unique")
+    editorial = data.get("editorial", {})
+    if not isinstance(editorial, dict) or ("require_source_fidelity" in editorial
+            and type(editorial["require_source_fidelity"]) is not bool):
+        raise ValueError("editorial.require_source_fidelity must be an explicit boolean")
     policy = data.get("policy", {})
     if type(policy.get("max_posts_per_day", 1)) is not int or not 1 <= policy.get("max_posts_per_day", 1) <= 20:
         raise ValueError("max_posts_per_day must be an integer between 1 and 20")
@@ -110,7 +114,7 @@ def initialize_config(workspace, output, author=""):
                    "max_posts_per_day": 1, "max_revision_rounds": 2,
                    "max_acquire_per_run": 3, "publish_hours": [9, 21]},
         "publication_backend": {"type": "disabled", "reason": "Configure and verify a backend before enabling submission"},
-        "editorial": {"excluded_source_names": []},
+        "editorial": {"excluded_source_names": [], "require_source_fidelity": True},
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("x", encoding="utf-8") as stream:
