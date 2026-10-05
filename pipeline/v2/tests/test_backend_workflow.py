@@ -41,7 +41,8 @@ class BackendWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="xhs-backend-workflow-")
         self.addCleanup(self.temp.cleanup)
-        self.workspace = Path(self.temp.name) / "独立工作区"
+        # Use the canonical TEMP path before binding private evidence fixtures.
+        self.workspace = Path(self.temp.name).resolve() / "独立工作区"
         self.workspace.mkdir()
         self.backend_root = self.workspace / "private-backend"
         self.backend_root.mkdir()

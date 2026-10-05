@@ -78,7 +78,8 @@ class BackendTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="xhs-backend-")
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        # Windows runners may expose TEMP through an 8.3 alias.
+        self.root = Path(self.temp.name).resolve()
         self.token_path = self.root / "private-token.json"
         self.token_path.write_text(json.dumps({"auth_token": TOKEN}), encoding="utf-8")
 
